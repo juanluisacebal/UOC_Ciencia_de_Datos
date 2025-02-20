@@ -1,0 +1,582 @@
+---
+title: 'Minería de datos: PRA2 - Proyecto de minería de datos'
+author: "Autor: Juan Luis Acebal Rico"
+date: "Enero 2025"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    includes:
+      in_header: 75.584-PEC-header.html
+  word_document: default
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+******
+# Enunciado
+******
+
+Como continuación del estudio iniciado en la Práctica 1, procedemos a **aplicar modelos analíticos, tanto no supervisados como supervisados**, sobre el juego de datos seleccionado y ya preparado. En esta **Práctica 2 tendréis que cargar los datos previamente preparados en la Práctica 1**.
+
+El objetivo es que pongáis en práctica con vuestros propios datos todos los modelos no supervisados y supervisados que se han utilizado en las 3 PECs previas. Además, se propone que se utilicen métricas y algoritmos alternativos a los propuestos en las PECs ya realizadas.
+
+**Punto común para todos los ejercicios**
+
+En todos los apartados de los ejercicios de esta práctica se pide al estudiante, además de aplicar los diferentes métodos, analizar correctamente el problema, **detallarlo de manera exhaustiva**, resaltando el por qué del análisis y cómo se ha realizado, incluir elementos visuales, explicar los resultados y realizar las comparativas oportunas con sus conclusiones.
+
+En toda la práctica es **necesario documentar** cada apartado del ejercicio que se ha hecho, el por qué y como se ha realizado. Asimismo, todas las decisiones y conclusiones deberán ser presentados de forma razonada y clara, **contextualizando los resultados**, es decir, especificando todos y cada uno de los pasos que se hayan llevado a cabo para su resolución. 
+
+En definitiva, se pide al estudiante que complete los siguientes pasos con el juebo de datos preparado en la Práctica 1:
+
+**Modelos no supervisados**
+
+1. Aplicar el algoritmo **no supervisado** *k-means* basado en el concepto de distancia entre las medias de los grupos, sobre el juego de datos originales y los datos normalizados. Se recuerda que se deben utilizar las variables cuantiativas o binarias que formen parte de la base de datos. También, en ese apartado se debe decidir si los grupos se definen a partir de las variables normalizados o no y se debe seleccionar el número de clusters que mejor se ajuste a los datos.
+
+2. Utilizando el número de clusters y los datos (normalizados o no) seleccionados en el punto 1, utilizar el algoritmo *k-medians* (basado en las medianas como centros de los clusters) para definir cada uno de los grupos. Comparar los resultados obtenidos con ambos algoritmos, *k-means* y *k-medians*, y comentad qué método os parece el más adecuado para vuestros datos. 
+
+3. Entrenar de nuevo el modelo basado en *k-means* que habéis seleccionado en el punto 1 pero usando una **métrica de distancia diferente a la distancia euclidiana** y comparad los resultados.
+
+4. Utilizar los algoritmos **DBSCAN y OPTICS**, probando con diferentes valores del parámetro `eps` y `minPts`, y comparar los resultados con los métodos anteriores. Comentad si el número de clusters coincide con el punto 1 y si los casos que los forman son similares.
+
+
+**Modelos supervisados**
+
+5. Seleccionar una muestra de entrenamiento y una de test utilizando las proporciones que se consideren más adecudas en función de la disponibilidad de datos. Justificar dicha selección.
+
+6. Una vez definida la variable objeto que se desea predecir, aplicar un modelo de generación de reglas a partir de **árboles de decisión** y ajustar las diferentes opciones (tamaño mínimo de los nodos, criterios de división, ...) para su obtención. Obtener el árbol sin y con opciones de poda. Obtener la matriz de confusión. Finalmente, comparar los resultados obtenidos con y sin opciones de poda.  Alternativamente, si la variable objeto de estudio es cuantitativa pura se obtienen los criterios de error que nos permitan determinar la capacidad predictiva.
+
+7. Aplicar un **modelo supervisado** diferente al del punto 6 (puede ser un algoritmo de árboles de decisión distinto u otro algoritmo supervisado alternativo). Comparar el resultado con el modelo generado anteriormente. Se pueden utilizar los criterios de evaluación de modelos descritos en el material docente de la asignatura.
+	
+8. Identificar eventuales **limitaciones** del dataset seleccionado y **analizar los riesgos** en el caso de utilizar el modelo para clasificar un nuevo caso. Por ejemplo, puede haber dificultades de sobreajuste, en el caso de clasificar, los porcentajes de falsos positivos y falsos negativos son similares, etc..
+
+**NOTA IMPORTANTE:** *Recordad que si las variables en vuestra base de datos tienen unidades de medida muy distintas es recomendable transformar las variables para evitar el efecto escala debido a las diferentes unidades de medida.*
+
+******
+# Recursos de programación
+******
+* Incluimos en este apartado una lista de recursos de programación para minería de datos donde podréis encontrar ejemplos, ideas e inspiración:
+
+  + [Espacio de recursos UOC para ciencia de datos](http://@datascience.recursos.uoc.edu/es/)
+  + [Buscador de código R](https://rseek.org/)  
+  + [Colección de cheatsheets en R](https://rstudio.com/resources/cheatsheets/)  
+  
+  
+******
+# Fecha de entrega
+******
+
+La fecha límite de entrega es el 20/01/2025.
+
+
+******
+# RESPUESTAS
+******
+El dataset usado: https://www.kaggle.com/datasets/die9origephit/amazon-data-science-books
+
+
+
+
+
+## Ejercicio 1
+
+
+```{r}
+library(dplyr)
+library(cluster)
+
+#df <- read.csv('final_book_dataset_kaggle2.csv')
+df <- read.csv('df.csv')
+df <- df[ , -1]
+summary(df)
+head(df)
+```
+
+```{r}
+str(df)
+```
+```{r}
+df$pages  <- as.factor(df$pages)
+df <- df[, names(df) != "price..including.used.books."]
+df$ingles <- as.factor(df$ingles)
+```
+
+
+
+```{r}
+#df <- na.omit(df)
+df_numeric <- df %>% select_if(is.numeric)
+#df_scaled <- scale(df_numeric)
+df_scaled <- as.data.frame(scale(df_numeric, center = TRUE, scale = apply(df_numeric, 2, function(x) max(x) - min(x))))
+```
+
+```{r}
+
+summary(df_scaled)
+summary(df_numeric)
+
+```
+
+```{r}
+
+head(df_scaled)
+head(df_numeric)
+
+```
+
+
+
+### Se obtine la agrupación mediante k-means con los datos originales y normalizados.
+```{r}
+library(factoextra)
+library(ggplot2)
+set.seed(123)
+fviz_nbclust(df_scaled, kmeans, method = "wss") +
+  ggtitle("Número clusters optimo segun el Método del Codo")
+```
+
+
+
+
+
+```{r}
+fviz_nbclust(df_scaled, kmeans, method = "silhouette") +
+  ggtitle("Número clusters optimo segun elMétodo de la Silueta")
+
+```
+
+
+```{r}
+kmeans_result <- kmeans(df_scaled, centers = 8, nstart = 25)
+fviz_cluster(kmeans_result, data = df_scaled)
+
+```
+```{r}
+kmeans_result <- kmeans(df_scaled, centers = 9, nstart = 25)
+fviz_cluster(kmeans_result, data = df_scaled)
+
+```
+
+```{r}
+
+fviz_cluster(kmeans_result, data = df_scaled, geom = "point", stand = FALSE) +
+  xlab("price") + ylab("avg_reviews")
+
+```
+
+
+
+### Se analizan, muestran y comentan las medidas de calidad del modelo generado.
+Se seleccionaron 9 clusters basándose en el método de la silueta, ya que ofrece una separación más clara entre los clusters según la medida promedio de cohesión. Sin embargo, se probó con 6 clusters como alternativa, siguiendo el método del codo, para comparar cómo afecta la decisión al agrupamiento final. Esto me permite evaluar la estabilidad de los clusters y su visualización e interpretación en diferentes configuraciones
+### Se comentan las conclusiones.
+Como primera visualizacion y explicacion en la PRA2 (dejando al margen lo que hice en la PRA1 que no la tomo como guion en lo que se refiere a la creación y desarrollo del modelo, a excepcion de utilizar los datos limpios, categorizaciones, estandarizaciones etc,..., que ha sido lo único que he utilizado de la PRA1)
+Vemos que el gráfico 1 y 2 no dicen nada, lo que para mi sugiere que, hay tanto ruido que el algoritmo no va a poder darnos unos clusters bien delimitados, cosa diferente a la vista en el grafico 3, en el que visualizo solamente 2 variables.
+***
+
+## Ejercicio 2
+
+### Se obtiene la agrupación k-medians con el número de grupos seleccionado en el ejercicio 1.
+```{r}
+fviz_nbclust(df_scaled, pam, method = "wss") +
+  ggtitle("Número clusters optimo segun el Método del Codo")
+
+```
+```{r}
+fviz_nbclust(df_scaled, pam, method = "silhouette") +
+  ggtitle("Número clusters optimo segun elMétodo de la Silueta")
+
+```
+
+
+
+
+```{r}
+kmedians_result <- pam(df_scaled, k = 6)
+fviz_cluster(kmedians_result, data = df_scaled)
+
+```
+
+```{r}
+kmedians_result <- pam(df_scaled, k = 8)
+fviz_cluster(kmedians_result, data = df_scaled)
+
+```
+
+
+
+
+```{r}
+
+fviz_cluster(kmedians_result, data = df_scaled, geom = "point", stand = FALSE) +
+  xlab("price") + ylab("avg_reviews")
+
+
+```
+
+
+
+```{r}
+
+kmedians_result <- pam(df_scaled, k = 8)
+
+fviz_cluster(kmedians_result, data = df_scaled, geom = "point", stand = FALSE) +
+  xlab("price") + ylab("avg_reviews")
+```
+
+
+
+### Se comparan los resultados con los obtenidos en el ejercicio 1.
+Para la comparacion de los resultados obtenidos en el ejercicio 1 y 2, se puede observar que los resultados son muy similares, lo que sugiere que el algoritmo k-medians no es muy diferente al k-means. En este caso, el k-medians ha generado 9 clusters, mientras que el k-means ha tambien 9 clusters.
+### Se comentan las conclusiones. 
+Los resultados obtenidos con k-means y k-medians son bastante similares, lo que parece que ambos algoritmos funcionan parecido para este conjunto de datos. Dado que k-medians es más robusto frente a outliers, la similitud entre ambos resultados indica que los datos probablemente no contienen valores extremos significativos que afecten la agrupación. En este caso, cualquiera de los dos métodos podría considerarse adecuado, pero con ciertas diferencias.
+*** 
+
+## Ejercicio 3
+
+### Se obtiene la agrupación mediante k-means (con los grupos seleccionados en el ejercicio 1), pero usando una métrica de distancia distinta.
+```{r}
+pam_res_manhattan <- pam(df_scaled, k = 8, metric = "manhattan")
+
+fviz_cluster(pam_res_manhattan, data = df_scaled) +
+  xlab("price") + ylab("avg_reviews")+
+  ggtitle("PAM (k-medians) con Distancia Manhattan")
+```
+
+### Se comparan los resultados con los obtenidos en el ejercicio 1.
+La visualización es peor que en el ejercicio 1, en el ejercicio 1 tenemos al menos 1 cluster claramente definido por media de valoraciones y precio..
+### Se comentan las conclusiones. 
+La distancia Manhattan es una métrica de distancia alternativa que mide la suma de las diferencias absolutas entre las coordenadas de dos puntos. En este caso, al aplicarla al algoritmo PAM, los resultados son menos claros y definidos que con la distancia euclidiana. Esto sugiere que la distancia euclidiana es más adecuada para este conjunto de datos, ya que permite una mejor separación de los clusters. La distancia Manhattan es útil en casos donde las variables tienen diferentes escalas o cuando se desea penalizar más las diferencias en una dimensión específica. En este caso, la distancia euclidiana parece ser más efectiva para encontrar patrones en los datos.
+***
+## Ejercicio 4
+
+### Se aplican lo algoritmos DBSCAN y OPTICS de forma correcta.
+
+
+```{r}
+
+library(dbscan)
+library(cluster)
+
+valores_eps <- seq(0.02, 0.2, by = 0.02)
+valores_minPts <- 1:30
+
+mejor_modelo <- NULL
+mejor_silueta <- -1
+
+for (eps in valores_eps) {
+    for (minPts in valores_minPts) {
+        modelo <- dbscan(df_scaled, eps = eps, minPts = minPts)
+        clusters <- modelo$cluster
+        clusters_validos <- clusters[clusters != 0]
+        datos_validos <- df_scaled[clusters != 0, , drop = FALSE]
+        tamanos_clusters <- table(clusters_validos)
+        if (length(unique(clusters_validos)) > 1 && all(tamanos_clusters >= 2)) {
+            matriz_distancias <- dist(datos_validos)
+            if (nrow(as.matrix(matriz_distancias)) > 1) {
+                silueta <- tryCatch(
+                    silhouette(clusters_validos, matriz_distancias),
+                    error = function(e) NULL
+                )
+                
+                if (!is.null(silueta)) {
+                    promedio_silueta <- mean(silueta[, 3])
+                    if (promedio_silueta > mejor_silueta) {
+                        mejor_silueta <- promedio_silueta
+                        mejor_modelo <- list(modelo = modelo, eps = eps, minPts = minPts)
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+```
+```{r}
+mejor_modelo
+mejor_silueta
+```
+
+
+
+
+
+```{r}
+library(dbscan)
+subset <- df_scaled[, c("price", "avg_reviews", "n_reviews")]#, "Peso..g.")]
+dbscan_res <- dbscan(subset, eps = 0.08, minPts = 5)
+dbscan_res
+
+optics_res <- optics(subset, minPts = 5)
+optics_res
+plot(optics_res, main = "OPTICS")
+
+
+```
+
+```{r}
+
+fviz_cluster(dbscan_res, data = df_scaled,
+             geom = "point", stand = FALSE) +
+  ggtitle("DBSCAN Clusters")
+
+```
+
+
+```{r}
+dbscan_list <- list(data = df_scaled[, c("price", "avg_reviews")], 
+                    cluster = dbscan_res$cluster)
+
+fviz_cluster(dbscan_list,
+             geom = "point", 
+             stand = FALSE) +
+  ggtitle("DBSCAN con sólo dos variables")
+
+```
+
+
+
+
+
+
+### Se prueban, describen e interpretan los resultados con diferentes valores de `eps` y `minPts`.
+```{r}
+dbscan_res <- dbscan(df_scaled, eps = 0.20, minPts = 5)
+dbscan_res
+
+optics_res <- optics(df_scaled, minPts = 2)
+optics_res
+
+```
+
+
+```{r}
+fviz_cluster(dbscan_res, data = df_scaled,
+             geom = "point", stand = FALSE) +
+  ggtitle("DBSCAN Clusters")
+```
+
+
+
+
+
+### Se obtiene una medida de lo bueno que es el agrupamiento.
+```{r}
+kmeans_sil <- silhouette(kmeans_result$cluster, dist(df_scaled))
+mean_sil_kmeans <- mean(kmeans_sil[, 3])
+mean_sil_kmeans
+```
+
+```{r}
+
+kmeans_sil_man <- silhouette(pam_res_manhattan$cluster, dist(df_scaled))
+mean_sil_kmeans_man <- mean(kmeans_sil_man[, 3])
+mean_sil_kmeans_man
+
+
+```
+
+
+
+```{r}
+pam_sil <- silhouette(kmedians_result$clustering, dist(df_scaled))
+
+mean_sil_pam <- mean(pam_sil[, 3])
+mean_sil_pam
+```
+
+
+```{r}
+mask_clusters <- dbscan_res$cluster != 0
+df_valid <- subset[mask_clusters, ]
+cluster_assign <- dbscan_res$cluster[mask_clusters]
+
+sil <- silhouette(cluster_assign, dist(df_valid))
+
+mean_sil_width <- mean(sil[, 3])
+mean_sil_width
+```
+
+### Se comparan los resultados obtenidos con los modelos k-means, k-medians y DBSCAN.
+El mejor parecia k means junto k medians sin embargo, DBSCAN no parecia tener una buena visualización pero sus resultados son mejores
+### Se comentan las conclusiones. 
+En este caso elijo DBSCAN identificó 3 clusters principales con un índice de silueta promedio negativo (-0.22), lo que refleja que algunos puntos están mal asignados. OPTICS, por otro lado, mostró una mayor sensibilidad a valores de eps y minPts, sugiriendo la presencia de subestructuras. En comparación con k-means, DBSCAN es más robusto frente al ruido, pero presenta muchas limitaciones debido a la distribución densa y uniforme de los datos
+***
+
+## Ejercicio 5
+
+### Se seleccionan las muestra de entrenamiento y test.
+```{r}
+n <- nrow(df)
+train_index <- sample(seq_len(n), size = 0.7 * n)
+
+train_data <- df[train_index, ]
+train_data <- train_data[, sapply(train_data, function(x) is.numeric(x) || is.factor(x))]
+train_data$ingles <- as.factor(train_data$ingles)
+test_data  <- df[-train_index, ]
+```
+	
+### Se justifican las proporciones seleccionadas.
+Normalmente se hace 70-30 o 80-20, en este caso he hecho 70-30, ya que tengo suficientes datos para hacerlo.
+*** 
+
+## Ejercicio 6
+
+### Se generan reglas y se seleccionan e interpretan las más significativas.
+```{r}
+library(rpart)
+library(rpart.plot)
+library(caret)
+
+arbol <- rpart(ingles ~ ., data = train_data,
+               method = "class",
+               control = rpart.control(minsplit = 5,
+                                       cp = 0.0001))
+rpart.plot(arbol)
+```
+```{r}
+printcp(arbol)
+summary(arbol)
+mejor_cp <- arbol$cptable[which.min(arbol$cptable[,"xerror"]), "CP"]
+mejor_cp
+```
+
+### Se extraen las reglas del modelo en formato texto y gráfico.
+
+```{r}
+library(rpart)
+library(rpart.plot)
+arbol_podado <- prune(arbol, cp = 0.0308)
+arbol_podado
+rpart.plot(arbol_podado)
+
+
+```
+```{r}
+
+arbol_podado <- prune(arbol, cp = 0.0307)
+arbol_podado
+rpart.plot(arbol_podado)
+```
+
+
+
+### Adicionalmente, se genera la matriz de confusión para medir la capacidad predictiva del algoritmo, teniendo en cuenta las distintas métricas asociadas a dicha matriz (precisión, sensibilidad, especificidad...). Alternativamente, si la variable objeto de estudio es cuantitativa pura se obtienen los criterios de error que nos permitan determinar la capacidad predictiva.
+
+```{r}
+library(caret)
+test_data$ingles <- factor(test_data$ingles)
+
+pred <- predict(arbol, newdata = test_data, type = "class")
+
+matriz_conf <- table(Prediccion = pred, Real = test_data$ingles)
+matriz_conf
+
+exactitud <- mean(pred == test_data$ingles)
+exactitud
+confusionMatrix(data = pred, reference = test_data$ingles)
+```
+
+
+```{r}
+pred <- predict(arbol_podado, newdata = test_data, type = "class")
+
+matriz_conf <- table(Prediccion = pred, Real = test_data$ingles)
+matriz_conf
+
+exactitud <- mean(pred == test_data$ingles)
+exactitud
+confusionMatrix(data = pred, reference = test_data$ingles)
+
+```
+
+
+
+### Se comparan e interpretan los resultados (sin y con opciones de poda), explicando las ventajas e inconvenientes del modelo generado respecto a otro método de construcción.
+Sin poda, el arbo tiende a sobreajustar los datos de entrenamiento, resultando en un menor de entrenamiento pero mayor error en el conjunto de test. Con poda el arbol se simplifica, y reduce el sobreajuste, y generalmente, puede mejorar la precision en el test.
+### Se evalúa la tasa de error en cada nivel de árbol, la eficiencia en la clasificación (en las muestras de entrenamiento y test) y la comprensibilidad del resultado.
+La poda reduce la tasa de error en el conjunto del test, y mejora la eficiencia en la clasificación. 
+
+### Se comentan las conclusiones.
+
+La poda mejora el resultado en su generalización y reduce la complejidad del modelo, reduciendo el riesgo de sobreajuste.Además, simplifica el árbol, haciéndolo más comprensible y fácil de interpretar. En este caso, la poda no ha mejorado la precisión del modelo, ha tenido la misma precisión que sin poda.
+*** 
+
+## Ejercicio 7
+
+### Se prueba con una variación u otro enfoque de algoritmo supervisado. 
+```{r}
+library(randomForest)
+modelo_rf <- randomForest(
+  ingles ~ ., data = train_data, ntree = 200, mtry = 2, importance = TRUE)
+
+modelo_rf
+```
+
+```{r}
+importance(modelo_rf)
+```
+```{r}
+varImpPlot(modelo_rf)
+```
+
+
+
+
+```{r}
+modelo_rf
+```
+
+
+### Se detalla, comenta y evalúa la calidad de clasificación o del ajuste.
+```{r}
+rf_pred <- predict(modelo_rf, newdata = test_data, type = "class")
+
+rf_pred <- factor(rf_pred, levels = c(0, 1))
+conf_rf <- confusionMatrix(data = rf_pred, reference = test_data$ingles)
+conf_rf
+```
+
+### Se comparan los resultados con el método supervisado del ejercicio 6.
+
+*** 
+
+## Ejercicio 8
+
+### Se identifica qué posibles limitaciones tienen los datos que has seleccionado para obtener conclusiones con los modelos (supervisado y no supervisado)
+
+Me faltaban tanto variables numéricas pero sobretodo variables categóricas, lo que complicó bastante el proceso. Trabajar con variables categóricas puede ser un desafío, especialmente cuando no hay suficiente variedad o cantidad para que el modelo encuentre patrones útiles. En mi caso, no pude realizar una clasificación con varias variables categóricas como habría sido ideal, ya que solo contaba con una, y esto limitó significativamente el análisis. Terminé haciendo una clasificación basada únicamente en una variable categórica que, además, no era muy representativa: se trataba de predecir si el libro estaba en inglés o no.
+
+Esto no es muy útil en términos prácticos, ya que no permite capturar información más compleja sobre el conjunto de datos. Ademas, al tratarse de una sola variable binaria, el modelo tiene pocas posibilidades de aprender patrones enriquecedores, lo que limita tanto su precision como su capacidad para generalizar. Hubiera sido mejor contar con más variables categóricas que reflejaran características adicionales, como el género literario, la región de origen, que podrían complementar el análisis y permitir una clasificación más robusta y precisa.
+
+Por otro lado, transformar variables categóricas en un formato útil para los algoritmos (como mediante técnicas de One-Hot Encoding o Label Encoding) es esencial, pero si solo se cuenta con una categoría binaria, el impacto de estas transformaciones es muy limitado. Esta experiencia me dejó claro que la falta de diversidad y cantidad de variables en mi dataset puede limitar severamente las capacidades predictivas de los modelos y subraya la importancia de tener un conjunto de datos más completo y equilibrado.
+
+### Se identifican posibles riesgos del uso del modelo (mínimo 300 palabras).
+El uso de modelos en entornos reales, aunque extremadamente útil, conlleva riesgos importantes que debemos considerar para garantizar su eficacia y equidad. En primer lugar, el sobreajuste es un problema común. Esto ocurre cuando un modelo se ajusta tanto a los datos de entrenamiento que pierde la capacidad de generalizar con datos nuevos. Por ejemplo, un modelo entrenado con datos específicos puede fracasar ante escenarios inesperados si no se trabaja con una muestra variada y representativa.
+
+Otro desafío crítico es el desequilibrio de clases. Cuando los datos están desproporcionadamente representados entre categorías (en mi caso ingles), el modelo tiende a favorecer a la clase dominante. Esto no solo afecta la precisión, sino que puede generar injusticias, especialmente en casos donde hay grupos minoritarios subrepresentados.
+
+Por otro lado, el data drift (o cambio en las distribuciones de los datos) es un riesgo a largo plazo. A medida que las preferencias de los usuarios o las condiciones del entorno cambian, los datos históricos pueden perder relevancia, disminuyendo la precisión de las predicciones. Esto exige una supervisión constante y actualizaciones periódicas del modelo.
+
+También, los valores atípicos y los datos faltantes son problemas recurrentes que, si no se manejan correctamente, afectan la estabilidad y confiabilidad de los resultados. Esto puede requerir imputar valores o eliminar outliers.
+
+En cuanto a las implicaciones éticas, la falta de cuidado al manejar datos sensibles puede derivar en discriminación o violaciones de privacidad. Además, los modelos complejos, como redes neuronales profundas, suelen ser poco interpretables, lo que dificulta explicar sus decisiones en aplicaciones críticas, como la medicina o las finanzas.
+
+Por último, la falta de validación cruzada y de una supervisión adecuada puede inflar artificialmente las métricas de rendimiento, complicando su extrapolación a otros escenarios. Por ello, la combinación de monitoreo continuo, documentación clara y una preparación de datos rigurosa es clave para mitigar estos riesgos y garantizar un desempeño sostenible del modelo en entornos reales.
+
+*** 
+
+
+
+
+
+
+

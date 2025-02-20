@@ -1,0 +1,924 @@
+---
+title: 'Minería de datos: PEC3 - Clasificación con árboles de decisión'
+author: "Autor: Juan Luis Acebal Rico"
+date: "Diciembre 2024"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    includes:
+      in_header: 75.584-PEC-header.html
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(eval=T, echo=T)
+```
+
+******
+# Recursos básicos
+******
+
+Esta Prueba de Evaluación Continuada (PEC) cubre principalmente el material didáctico de modelos supervisados y evaluación de modelos.
+
+Complementarios:
+
+* Material docente "Creación y evaluación de modelos no supervisados" proporcionado por la UOC.
+* Fichero titanic.csv.
+* R package C5.0 (Decision Trees and Rule-Based Models): https://cran.r-project.org/web/packages/C50/index.html
+* Fichero de "German Credit": credit.csv (se obtuvo de https://www.kaggle.com/shravan3273/credit-approval)
+
+La descripción de las variables se puede ver en https://archive.ics.uci.edu/ml/datasets/statlog+(german+credit+data)
+
+**La variable "default" es el target siendo 1 = "No default" y 2 = "Default". Se deben utilizar estos datos para la realización de los ejercicios.**
+
+******
+# Ejemplo ilustrativo
+******
+
+En este ejercicio vamos a seguir los pasos del ciclo de vida de un proyecto de minería de datos, para el caso de un algoritmo de clasificación usaremos un árbol de decisión, **que es el algoritmo supervisado que vamos a tratar en esta asignatura**. Primero y a modo de ejemplo sencillo lo haremos con el archivo titanic.csv, que se encuentra adjunto en el aula. Este archivo contiene un registro por cada pasajero que viajaba en el Titanic. En las variables se caracteriza si era hombre o mujer, adulto o menor (niño), en qué categoría viajaba o si era miembro de la tripulación.
+Se mostrará un ejemplo sencillo de solución con estos datos pero los alumnos deberéis responder a las preguntas de la rúbrica para otro conjunto: German Credit. Para este conjunto, tomaréis como referencia la variable "default" que indica el impago de créditos.
+
+**Objetivos:**
+
+*	Estudiar los datos, por ejemplo: ¿Número de registros del fichero? ¿Distribuciones de valores por variables? ¿Hay campos mal informados o vacíos?
+*	Preparar los datos. En este caso ya están en el formato correcto y no es necesario discretizar ni generar atributos nuevos. Hay que elegir cuáles son las variables que se utilizarán para construir el modelo y cuál es la variable que clasifica. En este caso la variable por la que clasificaremos es el campo de si el pasajero sobrevivia o no.
+*	Instalar, si es necesario, el paquete C5.0  Se trata de una implementación más moderna del algoritmo ID3 de Quinlan. Tiene los principios teóricos del ID3 más la poda automática. Con este paquete generar un modelo de minería.
+*	¿Cuál es la calidad del modelo?
+*	Generar el árbol gráfico.
+* Generar y extraer las reglas del modelo.
+*	En función del modelo, el árbol y las reglas: ¿Cuál es el conocimiento que obtenemos?
+*	Probar el modelo generado presentándole nuevos registros. ¿Clasifica suficientemente bien?
+
+A continuación, se plantean los puntos a realizar en la PEC 3 y, tomando como ejemplo el conjunto de datos de Titanic, se obtendrán, a modo de ejemplo, algunos resultados que pretender servir a  modo de inspiración para los estudiantes.
+Los estudiantes deberán utilizar el conjunto de datos de "German Credit Data" que se pueden conseguir en este enlace: https://www.kaggle.com/shravan3273/credit-approval
+
+Este recurso puede ser útil para profundizar sobre el paquete IML: https://uc-r.github.io/iml-pkg
+  
+Revisión de los datos, extracción visual de información y preparación de los datos
+
+Carga de los datos:
+
+```{r message= FALSE, warning=FALSE}
+data<-read.csv("./titanic.csv",header=T,sep=",")
+attach(data)
+```
+
+## Análisis inicial
+
+Empezaremos haciendo un breve análisis de los datos ya que nos interesa tener una idea general de los datos que disponemos. 
+
+### Exploración de la base de datos
+
+Primero calcularemos las dimensiones de nuestra base de datos y analizaremos qué tipos de atributos tenemos.
+
+Para empezar, calculamos las dimensiones de la base de datos mediante la función dim(). Obtenemos que disponemos de 2201 registros o pasajeros (filas) y 4 variables (columnas). 
+
+```{r}
+dim(data)
+```
+
+¿Cuáles son esas variables? Gracias a la función str() sabemos que las cuatro variables son categóricas o  discretas, es decir, toman valores en un conjunto finito. La variable CLASS hace referencia a la clase en la que viajaban los pasajeros (1ª, 2ª, 3ª o crew), AGE determina si era adulto o niño (Adulto o Menor), la variable SEX si era hombre o mujer (Hombre o Mujer) y la última variable (SURVIVED) informa si el pasajero murió o sobrevivió en el accidente (Muere o Sobrevive).
+
+```{r}
+str(data)
+```
+
+Vemos que las variables están definidas como carácter, así que las transformamos a tipo factor.
+
+```{r}
+data[] <- lapply(data, factor)
+str(data)
+```
+
+Es de gran interés saber si tenemos muchos valores nulos (campos vacíos) y la distribución de valores por variables. Es por ello recomendable empezar el análisis con una visión general de las variables. Mostraremos para cada atributo la cantidad de valores perdidos mediante la función summary.  
+
+```{r}
+summary(data)
+```
+
+Como parte de la preparación de los datos, miraremos si hay valores missing.
+
+```{r}
+missing <- data[is.na(data),]
+dim(missing)
+```
+Observamos fácilmente que no hay valores missing y, por tanto, no deberemos preparar los datos en este sentido. En caso de haberlos, habría que tomar decisiones para tratar los datos adecuadamente.
+
+Disponemos por tanto de un data frame formado por cuatro variables categóricas sin valores nulos. 
+
+### Visualización
+
+Para un conocimiento mayor sobre los datos, tenemos a nuestro alcance unas herramientas muy valiosas: las herramientas de visualización. Para dichas visualizaciones, haremos uso de los paquetes ggplot2, gridExtra y grid de R. 
+
+```{r}
+if(!require(ggplot2)){
+    install.packages('ggplot2', repos='http://cran.us.r-project.org')
+    library(ggplot2)
+}
+if(!require(ggpubr)){
+    install.packages('ggpubr', repos='http://cran.us.r-project.org')
+    library(ggpubr)
+}
+if(!require(grid)){
+    install.packages('grid', repos='http://cran.us.r-project.org')
+    library(grid)
+}
+if(!require(gridExtra)){
+    install.packages('gridExtra', repos='http://cran.us.r-project.org')
+    library(gridExtra)
+}
+if(!require(C50)){
+    install.packages('C50', repos='http://cran.us.r-project.org')
+    library(C50)
+}
+```
+
+Siempre es importante analizar los datos que tenemos ya que las conclusiones dependerán de las características de la muestra.
+
+```{r}
+grid.newpage()
+plotbyClass<-ggplot(data,aes(CLASS))+geom_bar() +labs(x="Class", y="Passengers")+ guides(fill=guide_legend(title=""))+ scale_fill_manual(values=c("blue","#008000"))+ggtitle("Class")
+plotbyAge<-ggplot(data,aes(AGE))+geom_bar() +labs(x="Age", y="Passengers")+ guides(fill=guide_legend(title=""))+ scale_fill_manual(values=c("blue","#008000"))+ggtitle("Age")
+plotbySex<-ggplot(data,aes(SEX))+geom_bar() +labs(x="Sex", y="Passengers")+ guides(fill=guide_legend(title=""))+ scale_fill_manual(values=c("blue","#008000"))+ggtitle("Sex")
+plotbySurvived<-ggplot(data,aes(SURVIVED))+geom_bar() +labs(x="Survived", y="Passengers")+ guides(fill=guide_legend(title=""))+ scale_fill_manual(values=c("blue","#008000"))+ggtitle("SURVIVED")
+grid.arrange(plotbyClass,plotbyAge,plotbySex,plotbySurvived,ncol=2)
+
+```
+Claramente vemos cómo es la muestra analizando la distribución de las variables disponibles. De cara a los informes, es mucho más interesante esta información que la obtenida en summary, que se puede usar para complementar.
+
+
+Nos interesa describir la relación entre la supervivencia y cada uno de las variables mencionadas anteriormente. Para ello, por un lado graficaremos mediante diagramas de barras la cantidad de muertos y supervivientes según la clase en la que viajaban, la edad o el sexo. Por otro lado, para obtener los datos que estamos graficando utilizaremos el comando table para dos variables que nos proporciona una tabla de contingencia.
+
+```{r}
+grid.newpage()
+plotbyClass<-ggplot(data,aes(CLASS,fill=SURVIVED))+geom_bar() +labs(x="Class", y="Passengers")+ guides(fill=guide_legend(title=""))+ scale_fill_manual(values=c("black","#008000"))+ggtitle("Survived by Class")
+plotbyAge<-ggplot(data,aes(AGE,fill=SURVIVED))+geom_bar() +labs(x="Age", y="Passengers")+ guides(fill=guide_legend(title=""))+ scale_fill_manual(values=c("black","#008000"))+ggtitle("Survived by Age")
+plotbySex<-ggplot(data,aes(SEX,fill=SURVIVED))+geom_bar() +labs(x="Sex", y="Passengers")+ guides(fill=guide_legend(title=""))+ scale_fill_manual(values=c("black","#008000"))+ggtitle("Survived by Sex")
+grid.arrange(plotbyClass,plotbyAge,plotbySex,ncol=2)
+
+```
+
+De estos gráficos obtenemos información muy valiosa que complementamos con las tablas de contingencia (listadas abajo). Por un lado, la cantidad de pasajeros que sobrevivieron es similar en hombres y mujeres (hombres: 367 y mujeres 344). No, en cambio, si tenemos en cuenta el porcentaje respecto a su sexo. Es decir, pese a que la cantidad de mujeres y hombres que sobrevivieron es pareja, viajaban más hombres que mujeres (470 mujeres y 1731 hombres), por lo tanto, la tasa de muerte en hombres es muchísimo mayor (el 78,79% de los hombres murieron mientras que en mujeres ese porcentaje baja a 26,8%). 
+
+En cuanto a la clase en la que viajaban, los pasajeros que viajaban en primera clase fueron los únicos que el porcentaje de supervivencia era mayor que el de mortalidad. El 62,46% de los viajeros de primera clase sobrevivió, el 41,4% de los que viajaban en segunda clase mientras que de los viajeros de tercera y de la tripulación solo sobrevivieron un 25,21% y 23,95% respectivamente. Para finalizar, destacamos que la presencia de pasajeros adultos era mucho mayor que la de los niños (2092 frente a 109) y que la tasa de supervivencia en niños fue mucho mayor (52,29% frente a 31,26%), no podemos obviar, en cambio, que los únicos niños que murieron fueron todos pasajeros de tercera clase (52 niños). 
+
+```{r}
+tabla_SST <- table(SEX, SURVIVED)
+tabla_SST
+prop.table(tabla_SST, margin = 1)
+```
+
+```{r}
+tabla_SCT <- table(CLASS,SURVIVED)
+tabla_SCT
+prop.table(tabla_SCT, margin = 1)
+```
+
+```{r}
+tabla_SAT <- table(AGE,SURVIVED)
+tabla_SAT
+prop.table(tabla_SAT, margin = 1) 
+```
+
+```{r}
+tabla_SAT.byClass <- table(AGE,SURVIVED,CLASS)
+tabla_SAT.byClass
+```
+
+### Test estadísticos de significancia
+
+Los resultados anteriores muestran los datos de forma descriptiva, podemos añadir algún test estadístico para validar el grado de significancia de la relación. La librería "DescTools" nos permite instalarlo fácilmente.
+
+
+```{r}
+if(!require(DescTools)){
+    install.packages('DescTools', repos='http://cran.us.r-project.org')
+    library(DescTools)
+}
+```
+```{r}
+Phi(tabla_SST) 
+CramerV(tabla_SST) 
+```
+```{r}
+Phi(tabla_SAT) 
+CramerV(tabla_SAT) 
+```
+
+```{r}
+Phi(tabla_SCT) 
+CramerV(tabla_SCT) 
+```
+
+Valores de la V de Cramér  (https://en.wikipedia.org/wiki/Cramér%27s_V) y Phi (https://en.wikipedia.org/wiki/Phi_coefficient) entre 0.1 y 0.3 nos indican que la asociación estadística es baja, y entre 0.3 y 0.5 se puede considerar una asociación media. Finalmente, si los valores fueran superiores a 0.5 (no es el caso), la asociación estadística entre las variables sería alta.
+Como se puede apreciar, los valores de Phi y V coinciden. Esto ocurre en el contexto de analizar tablas de contingencia 2x2.
+
+Una alternativa interesante a las barras de diagramas, es el plot de las tablas de contingencia. Obtenemos la misma información pero para algunos receptores puede resultar más visual.  
+
+```{r}
+par(mfrow=c(2,2))
+plot(tabla_SCT, col = c("black","#008000"), main = "SURVIVED vs. CLASS")
+plot(tabla_SAT, col = c("black","#008000"), main = "SURVIVED vs. AGE")
+plot(tabla_SST, col = c("black","#008000"), main = "SURVIVED vs. SEX")
+```
+
+Nuestro objetivo es crear un árbol de decisión que permita analizar qué tipo de pasajero del Titanic tenía probabilidades de sobrevivir o no. Por lo tanto, la variable por la que clasificaremos es el campo de si el pasajero sobrevivió o no. De todas maneras, al imprimir las primeras (con head) y últimas 10 (con tail) filas nos damos cuenta de que los datos están ordenados.
+
+```{r}
+head(data,10)
+tail(data,10)
+```
+
+## Preparación de los datos para el modelo
+
+Para la futura evaluación del árbol de decisión, es necesario dividir el conjunto de datos en un conjunto de entrenamiento y un conjunto de prueba. El conjunto de entrenamiento es el subconjunto del conjunto original de datos utilizado para construir un primer modelo; y el conjunto de prueba, el subconjunto del conjunto original de datos utilizado para evaluar la calidad del modelo. 
+
+Lo más correcto será utilizar un conjunto de datos diferente del que utilizamos para construir el árbol, es decir, un conjunto diferente del de entrenamiento. No hay ninguna proporción fijada con respecto al número relativo de componentes de cada subconjunto, pero la más utilizada acostumbra a ser 2/3 para el conjunto de entrenamiento y 1/3, para el conjunto de prueba. 
+
+La variable por la que clasificaremos es el campo de si el pasajero sobrevivió o no, que está en la cuarta columna. De esta forma, tendremos un conjunto de datos para el entrenamiento y uno para la validación
+
+```{r}
+set.seed(666)
+y <- data[,4] 
+X <- data[,1:3] 
+```
+
+De forma dinámica podemos definir una forma de separar los datos en función de un parámetro. Así, definimos un parámetro que controla el split de forma dinámica en el test. 
+
+```{r}
+split_prop <- 3 
+indexes = sample(1:nrow(data), size=floor(((split_prop-1)/split_prop)*nrow(data)))
+trainX<-X[indexes,]
+trainy<-y[indexes]
+testX<-X[-indexes,]
+testy<-y[-indexes]
+```
+
+Después de una extracción aleatoria de casos es altamente recomendable efectuar un análisis de datos mínimo para asegurarnos de no obtener clasificadores sesgados por los valores que contiene cada muestra. En este caso, verificaremos que la proporción del supervivientes es más o menos constante en los dos conjuntos:
+
+```{r}
+summary(trainX);
+summary(trainy)
+summary(testX)
+summary(testy)
+```
+Verificamos fácilmente que no hay diferencias graves que puedan sesgar las conclusiones.
+
+## Creación del modelo, calidad del modelo y extracción de reglas
+
+Se crea el árbol de decisión usando los datos de entrenamiento (no hay que olvidar que la variable outcome es de tipo factor):
+
+```{r}
+trainy <-  as.factor(trainy)
+model <- C50::C5.0(trainX, trainy,rules=TRUE )
+summary(model)
+```
+
+Errors muestra el número y porcentaje de casos mal clasificados en el subconjunto de entrenamiento. El árbol obtenido clasifica erróneamente 322 de los 1467 casos dados, una tasa de error del 21.9%.
+
+A partir del árbol de decisión de dos hojas que hemos modelado, se pueden extraer las siguientes reglas de decisión (gracias a rules=TRUE podemos imprimir las reglas directamente):
+
+SEX = "Hombre" → Muere. Validez: 78,9%
+
+CLASS "3ª"  → Muere. Validez: 74,1%
+
+CLASS "1ª", "2ª", "crew" y SEX = "Mujer" → Sobrevive. Validez: 91,1%
+
+
+Por tanto, podemos concluir que el conocimiento extraído y cruzado con el análisis visual se resume en "las mujeres y los niños primero a excepción de que fueras de 3ª clase".
+
+A continuación, mostramos el árbol obtenido.
+
+```{r}
+model <- C50::C5.0(trainX, trainy)
+plot(model,gp = gpar(fontsize = 9.5))
+```
+
+
+## Validación del modelo con los datos reservados
+Una vez tenemos el modelo, podemos comprobar su calidad prediciendo la clase para los datos de prueba que nos hemos reservado al principio. 
+
+```{r}
+predicted_model <- predict( model, testX, type="class" )
+print(sprintf("La precisión del árbol es: %.4f %%",100*sum(predicted_model == testy) / length(predicted_model)))
+```
+
+Cuando hay pocas clases, la calidad de la predicción se puede analizar mediante una matriz de confusión que identifica los tipos de errores cometidos. 
+
+```{r}
+mat_conf<-table(testy,Predicted=predicted_model)
+mat_conf
+```
+
+Otra manera de calcular el porcentaje de registros correctamente clasificados usando la matriz de confusión:
+
+```{r}
+
+porcentaje_correct<-100 * sum(diag(mat_conf)) / sum(mat_conf)
+print(sprintf("El %% de registros correctamente clasificados es: %.4f %%",porcentaje_correct))
+
+```
+
+Además, tenemos a nuestra disposición el paquete gmodels para obtener información más completa:
+
+```{r}
+if(!require(gmodels)){
+    install.packages('gmodels', repos='http://cran.us.r-project.org')
+    library(gmodels)
+}
+```
+
+```{r}
+CrossTable(testy, predicted_model,prop.chisq  = FALSE, prop.c = FALSE, prop.r =FALSE,dnn = c('Reality', 'Prediction'))
+```
+
+## Prueba con una variación u otro enfoque algorítmico
+
+### Variaciones del paquete C5.0 
+
+En este apartado buscaremos probar con las variaciones que nos ofrece el paquete C5.0 para analizar cómo afectan a la creación de los árboles generados. Existen muchas posibles variaciones con otras funciones que podéis investigar. La idea es seguir con el enfoque de árboles de decisión explorando posibles opciones.
+Una vez tengamos un método alternativo, debemos analizar cómo se modifica el árbol y cómo afecta a la capacidad predictiva en el conjunto de test.
+
+A continuación, utilizamos otro enfoque para comparar los resultados: incorpora como novedad "adaptative boosting", basado en el trabajo Rob Schapire and Yoav Freund (1999). La idea de esta técnica es generar varios clasificadores, con sus correspondientes arboles de decisión y su ser de reglas. Cuando un nuevo caso va a ser clasificado, cada clasificador vota cual es la clase predicha. Los votos son sumados y determina la clase final.
+
+```{r}
+modelo2 <- C50::C5.0(trainX, trainy, trials = 10)
+plot(modelo2,gp = gpar(fontsize = 9.5))
+```
+
+En este caso, dada la simplicidad del conjunto de ejemplo, no se aprecian diferencias, pero aparecerán en datos de mayor complejidad y modificando el parámetro "trials" se puede intentar mejorar los resultados.
+
+Vemos a continuación cómo son las predicciones del nuevo árbol:
+
+```{r}
+predicted_model2 <- predict( modelo2, testX, type="class" )
+print(sprintf("La precisión del árbol es: %.4f %%",100*sum(predicted_model2 == testy) / length(predicted_model2)))
+```
+Observamos como se modifica levemente la precisión del modelo a mejor.
+
+```{r}
+mat_conf<-table(testy,Predicted=predicted_model2)
+mat_conf
+```
+
+Otra manera de calcular el porcentaje de registros correctamente clasificados usando la matriz de confusión:
+
+```{r}
+
+porcentaje_correct<-100 * sum(diag(mat_conf)) / sum(mat_conf)
+print(sprintf("El %% de registros correctamente clasificados es: %.4f %%",porcentaje_correct))
+
+```
+
+El algoritmo C5.0 incorpora algunas opciones para ver la importancia de las variables (ver documentación para los detalles entre los dos métodos):
+
+```{r}
+importancia_usage <- C50::C5imp(modelo2, metric = "usage")
+importancia_splits <- C50::C5imp(modelo2, metric = "splits")
+importancia_usage
+importancia_splits
+```
+Curiosamente y aunque el conjunto de datos es muy sencillo, se aprecian diferencias en los métodos de importancia de las variables. Se recomienda en vuestro ejercicio mejorar la visualización de los resultados con la función ggplo2 o similar.
+
+## Interpretación de las variables en las predicciones.
+
+Nos interesa saber para las predicciones que variable son las que tienen más influencia. Así, probaremos con un enfoque algorítmico de Random Forest y obtendremos métricas de interpretabilidad con la librería IML (https://cran.r-project.org/web/packages/iml/iml.pdf). As:
+
+```{r}
+if(!require(randomForest)){
+  install.packages('randomForest',repos='http://cran.us.r-project.org')
+  library(randomForest)
+}
+if(!require(iml)){
+  install.packages('iml', repos='http://cran.us.r-project.org')
+  library(iml)
+}
+```
+
+Empezamos ejecutado un Random Forest:
+
+```{r}
+train.data <- as.data.frame(cbind(trainX,trainy))
+colnames(train.data)[4] <- "SURVIVED"
+rf <-  randomForest(SURVIVED ~ ., data = train.data, ntree = 50)
+```
+
+Podemos medir y graficar la importancia de cada variable para las predicciones del random forest con _FeatureImp_. La medida se basa funciones de pérdida de rendimiento que en nuestro caso será con el objetivo de clasificación ("ce").
+
+```{r}
+X <- train.data[which(names(train.data) != "SURVIVED")]
+predictor <- Predictor$new(rf, data = X, y = train.data$SURVIVED) 
+imp <- FeatureImp$new(predictor, loss = "ce")
+plot(imp)
+imp$results
+```
+
+Adicionalmente, podemos también dibujar los efectos locales acumulados (ALE) de la variable usando la libreria _patchwork_:
+  
+```{r}
+if(!require(patchwork)){
+    install.packages('patchwork',repos='http://cran.us.r-project.org')
+    library(patchwork)
+}
+
+effs <- FeatureEffects$new(predictor)
+plot(effs)
+```
+
+Como podemos ver, el género es la variable con más importancia para las predicciones, siendo las mujeres mucho más propensas a sobrevivir.
+Nota: Se espera que los alumnos profundicen en la función de cara a la resolución de los ejercicios.
+
+# Enunciado del ejercicio
+
+Para el conjunto de datos German Credit, los alumnos deben completar aquí la solución a la PEC3 que consiste de los siguientes apartados. Notad que se detalla el contenido necesario para cada apartado en la Sección 4 (Rúbrica).
+
+Se debe entregar la PEC en el buzón de entregas del aula, como en las anteriores PECs. 
+
+
+## Realizar un primer análisis descriptivo y de correlaciones. Es importante en este apartado entender bien los datos antes de seguir con los análisis posteriores. Lista todo lo que te haya sorprendido de los datos
+
+```{r message= FALSE, warning=FALSE}
+data<-read.csv("./credit.csv",header=T,sep=",")
+summary(data)
+```
+```{r}
+head(data)
+```
+#La descricion de las columnas es:
+  **checking_balance:** Cuenta corriente, con valores "unknown", "1 - 200 DM", "no checking", "> 200 DM", entre otros, entiendo yo que DM es Deutch Mark, son caracteres y tendríamos que convertirlo a factor.
+  **months_loan_duration: **Duración del préstamo en meses, numérico.
+  **credit_history: **Historial crediticio, con valores "delayed", "critical","repaid", entre otros, entiendo que es  factor.
+  **purpose: **Propósito préstamo, con valores "radio/tv", "education", "furniture", "car", ... entre otros, entiendo que es factor también.
+  **amount: **Monto del préstamo, numérico.
+  **savings_balance: **Saldo de ahorros, con valores "unknown", "no known savings", "500 - 1000 DM", "100 - 500 DM", entre otros, entiendo que es factor.
+  **employment_length: **Duración del empleo, con valores "1 - 4 years", "4 - 7 years", "unemployed", "less than 1 year", entre otros, entiendo que es factor también. Siempre podemos sacar el promedio para valores numéricos factorizados.
+  **installment_rate: **Porcentaje de ingresos totales en pago a plazos, numérico.
+  **personal_status: **Estado civil, con valores como "single male", "female", etc
+  **other_debtors: **Otros deudores, con valores como "none", "guarantor", "co-applicant", entiendo que es factor.
+  **residence_history: **Historial de residencia, numérico.
+  **property: **Propiedad, con valores como "real estate", "unknown/none", "building society savings", "other", entiendo que es factor.
+  **age:** Edad, numérico.
+  **installment_plan: **Plan de pago a plazos, con valores como "none", "bank", "stores", entiendo que es factor.
+  **housing: **Tipo de vivienda, con valores como "own", "for free", "rent", entiendo que es factor.
+  **existing_credits: **Créditos existentes, numérico.
+  **default: **Incumplimiento, con valores "yes" y "no", entiendo que es la variable a predecir.
+  **dependents: **Dependientes, numérico.
+  **telephone: **Teléfono, con valores "yes" y "none", entiendo que es factor.
+  **foreign_worker: **Trabajador extranjero, con valores "yes" y "no", entiendo que es factor.
+  **job: **Trabajo, con valores "skilled employee", "unskilled resident", "mangement self-employed", etc... es factor
+  
+```{r message= FALSE, warning=FALSE}
+dim(data)
+str(data)
+```
+
+
+```{r}
+data[is.na(data),]
+```
+No hay nulos, entonces no hago nada al respecto
+
+```{r}
+sapply(data[, sapply(data, is.integer)], function(x) length(unique(x)))
+```
+Veo que las variables numericas amount, months_loan_duration y age deberian quedar como numericas y el resto podemos hacerlas factor.
+```{r}
+data[] <- lapply(data, function(x) if (is.character(x)) as.factor(x) else x)
+data[["installment_rate"]] <- as.factor(data[["installment_rate"]])
+data[["residence_history"]] <- as.factor(data[["residence_history"]])
+data[["existing_credits"]] <- as.factor(data[["existing_credits"]])
+data[["dependents"]] <- as.factor(data[["dependents"]])
+data[["default"]] <- as.factor(data[["default"]])
+str(data)
+```
+# Ahora realizo un análisis de correlaciones entre las variables.
+#¿Hay alguna variable que se pueda eliminar por estar muy correlacionada con otra?
+
+```{r}
+correlacion_matrix <- cor(data[sapply(data, is.numeric)])
+print("Matriz de correlación:")
+print(correlacion_matrix)
+```
+
+
+```{r}
+top_corr <- correlacion_matrix
+top_corr[abs(top_corr) <= 0.2] <- NA
+print("Correlaciones top:")
+print(top_corr)
+```
+Quizás se podría eliminar la variable months_loan_duration, o la variable amount, aunque lo dejare asi. Si bien no están totalmente correlacionadas, si tienen una correlación importante del 0.6249 entre ellas.
+
+```{r}
+columna_objetivo <- "default" 
+
+categoricas <- names(data)[sapply(data, is.factor)]
+numericas <- names(data)[sapply(data, is.numeric)]
+
+for (var_cat in categoricas) {
+  print(
+    ggplot(data, aes_string(x = var_cat, fill = columna_objetivo)) +
+      geom_bar(position = "dodge") +
+      labs(title = paste("Distribución ", var_cat), x = var_cat, y = "Frecuencia") +
+      theme_minimal()
+  )
+}
+
+for (var_num in numericas) {
+  print(
+    ggplot(data, aes_string(x = var_num, fill = columna_objetivo)) +
+      geom_histogram(bins = 20, alpha = 0.7) +
+      labs(title = paste("Distribución ", var_num, "según", columna_objetivo),
+           x = var_num, y = "Frecuencia", fill = columna_objetivo) +
+      theme_minimal()
+  )
+}
+```
+
+
+
+```{r}
+ggplot(data, aes(x = months_loan_duration, y = amount, color = default)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Relación entre months_loan_duration y amount",
+       x = "months_loan_duration (meses)",
+       y = "amount (Marcos alemanes)") +
+  theme_minimal()
+```
+
+
+
+
+# ¿Y las variables categóricas?
+
+```{r}
+variables_tipo_factor <- data[, sapply(data, is.factor)]
+nombres_vars <- names(variables_tipo_factor)
+combinaciones <- combn(nombres_vars, 2, simplify = FALSE)
+resultados <- data.frame(
+  Variable1 = character(),
+  Variable2 = character(),
+  CramersV = numeric(),
+  Asociacion = character(),
+  p_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for(pair in combinaciones) {
+  var1 <- variables_tipo_factor[[pair[1]]]
+  var2 <- variables_tipo_factor[[pair[2]]]
+  
+  tabla <- table(var1, var2)
+  V <- CramerV(tabla, unbiased = TRUE)
+  
+  test <- suppressWarnings(chisq.test(tabla, correct = FALSE))
+  p_val <- test$p.value
+  
+  asociacion <- ifelse(V > 0.5, "Alta",
+                       ifelse(V > 0.3, "Media",
+                              ifelse(V > 0.1, "Baja", "Muy Baja")))
+  
+  if(p_val < 0.05) {
+    resultados <- rbind(resultados, data.frame(
+      Variable1 = pair[1],
+      Variable2 = pair[2],
+      CramersV = round(V, 3),
+      Asociacion = asociacion,
+      p_value = round(p_val, 5),
+      stringsAsFactors = FALSE
+    ))
+  }
+}
+
+
+print(resultados[order(-resultados$CramersV), ])
+```
+
+Aquí nos pasa igual, tenemos una correlación significativa, pero muy lejos de 1, entre housing y property, con un valor de 0.553118.
+
+
+
+```{r}
+eta <- function(num_var, cat_var) {
+  anova_result <- summary(aov(num_var ~ cat_var))[[1]]
+  ss_between <- anova_result["cat_var", "Sum Sq"]
+  ss_total <- sum(anova_result[, "Sum Sq"])
+  return(sqrt(ss_between / ss_total))
+}
+
+categorical_vars <- data[, sapply(data, is.factor)]
+numerical_vars <- data[, sapply(data, is.numeric)]
+
+eta_matrix <- matrix(NA, nrow = ncol(categorical_vars), ncol = ncol(numerical_vars),
+                     dimnames = list(colnames(categorical_vars), colnames(numerical_vars)))
+
+for (cat in colnames(categorical_vars)) {
+  for (num in colnames(numerical_vars)) {
+    eta_matrix[cat, num] <- eta(numerical_vars[[num]], categorical_vars[[cat]])
+  }
+}
+
+print("Matriz de Coeficiente Eta:")
+print(eta_matrix)
+```
+
+```{r}
+top_corr <- eta_matrix
+top_corr[abs(top_corr) <= 0.2] <- NA
+print("Correlaciones top:")
+print(top_corr)
+```
+No hay nada significativo aqui, a excepcion de existing_credits con credit_history con un 0.595094 de correlación.
+
+```{r}
+ggplot(data, aes(x = housing, y = property, fill = default)) +
+  geom_tile(color = "white", lwd = 0.5, linetype = 1) +
+  labs(title = "Relación entre Housing y Property según Default",
+       x = "Housing",
+       y = "Property",
+       fill = "Default") +
+  theme_minimal()
+
+ggplot(data, aes(x = housing, fill = property)) +
+  geom_bar(position = "fill", alpha = 0.8) +
+  facet_wrap(~default) +
+  labs(title = "Distribución de Housing y Property según Default",
+       x = "Housing",
+       y = "Proporción",
+       fill = "Property") +
+  theme_minimal()
+```
+Si hago un grafico estilo mosaico, se puede ver como es mas importante en las variables housing y property la variable default. 
+Se puede ver que las distintas propiedades, en el grafico de barras apilado, tienen una distribucion realmente no tan diferente aunque de insights diría que, si es real estate, tiene menos probabilidad de default que si es el resto de tipos de propiedades, pero realmente no tan significativo.
+
+
+De momento, dejo las variables como están, teniendo en cuenta, que para el modelo de árbol de decisión, no es necesario inicialmente eliminar variables correlacionadas, y en el caso que quisiera hacer diferentes pruebas después, siempre está bien conocer de antemano las correlaciones entre las variables.
+
+## Realizar un primer árbol de decisión. Puedes decidir utilizar todas las variables o, de forma justificada, quitar alguna para el ajuste del modelo
+
+```{r}
+data[[columna_objetivo]] <- as.factor(data[[columna_objetivo]])
+set.seed(123)
+indices <- sample(1:nrow(data), size = 0.7 * nrow(data))
+train <- data[indices, ]
+test <- data[-indices, ]
+model <- C50::C5.0(train[, colnames(train) != columna_objetivo], train[[columna_objetivo]])
+summary(model)
+```
+
+
+
+## Con el árbol obtenido, realiza una breve explicación de las reglas obtenidas así como de todos los puntos que te parezcan interesantes. Un elemento a considerar es, por ejemplo, cuantas observaciones caen dentro de cada regla
+
+# ¿Y la importancia de las variables?
+```{r}
+C5imp(model)
+```
+Vemos que, checking_balance es la variable más importante, seguida de months_loan_duration , credit_history other_debtors, purpose y savings_balance. 
+```{r}
+model <- C50::C5.0(train[, colnames(train) != columna_objetivo], train[[columna_objetivo]],
+                     control = C5.0Control(minCases = 2))
+```
+Si pongo minCases 2 la verdad es que tiene buen resultado, aunque no es totalmente visible en el grafico, pero mas adelante lo veremos bien.
+```{r}
+plot(model, gp = gpar(fontsize = 9.5))
+```
+
+
+
+## Una vez tengas un modelo válido, procede a realizar un análisis de la bondad de ajuste sobre el conjunto de test y matriz de confusión. ¿Te parece un modelo suficientemente bueno como para utilizarlo? Justifica tu respuesta considerando todos los posibles tipos de error
+```{r}
+predicciones_test <- predict(model, newdata = test)
+
+matriz_confusion <- table(Predicted = predicciones_test, Actual = test$default)
+
+print(matriz_confusion)
+```
+Es suficientemente bueno pero es mejorable, los falsos positivos son altos y los falsos negativos no tan altos pero tambien
+
+## Con un enfoque parecido a los puntos anteriores y considerando las mismas variables, enriquece el ejercicio mediante el ajuste de modelos de árbol de decisión complementarios. ¿Es el nuevo enfoque mejor que el original? Justifica la respuesta
+
+```{r}
+# cuadricula con todas las combinaciones a probar
+param_grid <- expand.grid(
+  minCases = seq(0, 200, by = 25), # minimo de casos por rama
+  trials = c(1, 5, 10, 15, 20, 25, 30, 35, 40), # intentos
+  CF = c(0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45), #ajuste
+  winnow = c(TRUE, FALSE), # filtrar variables no importantes
+  bands = c(5, 10, 15), # division en variables numericas
+  rules = c(TRUE, FALSE), # basado en reglas o arbol tradicional
+  noGlobalPruning = c(TRUE, FALSE) # desactiva la poda global
+)
+
+# si rules es false, guardamos NA en bands y no lo usamos
+param_grid$bands <- ifelse(param_grid$rules == FALSE, NA, param_grid$bands)
+
+# duplicados en rules false y bands NA
+param_grid <- param_grid[!duplicated(param_grid), ]
+
+#combinaciones totales que voy a probar, he reducido mucho ya que me tardaba horas sino, ahora es unos 10-15 minutos
+nrow(param_grid)
+
+resultados <- data.frame(
+  minCases = integer(0),
+  trials = integer(0),
+  CF = numeric(0),
+  winnow = logical(0),
+  bands = numeric(0),
+  noGlobalPruning = logical(0),
+  rules = logical(0),
+  Exactitud = numeric(0),
+  Sensibilidad = numeric(0),
+  Especificidad = numeric(0),
+  Precisión = numeric(0),
+  F1_Score = numeric(0),
+  F2_Score = numeric(0),
+  F0.5_Score = numeric(0)
+)
+
+set.seed(123)
+indices <- sample(1:nrow(data), size = 0.7 * nrow(data))
+train <- data[indices, ]
+test <- data[-indices, ]
+```
+
+
+```{r}
+for (i in 1:nrow(param_grid)) {
+  mc <- param_grid$minCases[i]
+  trials <- param_grid$trials[i]
+  cf <- param_grid$CF[i]
+  winnow <- param_grid$winnow[i]
+  bands <- param_grid$bands[i]
+  rules <- param_grid$rules[i]
+  noGlobalPruning <- param_grid$noGlobalPruning[i]
+  earlyStopping <- param_grid$earlyStopping[i]
+  
+modelo <- C5.0(
+  x = train[, -which(names(train) == columna_objetivo)],
+  y = train[[columna_objetivo]],
+  trials = trials,
+  control = if (rules) {
+    C5.0Control(
+      minCases = mc,
+      CF = cf,
+      winnow = winnow,
+      earlyStopping = TRUE,
+      bands = bands,
+      noGlobalPruning = noGlobalPruning
+    )
+  } else {
+    C5.0Control(
+      minCases = mc,
+      CF = cf,
+      winnow = winnow,
+      earlyStopping = TRUE,
+      noGlobalPruning = noGlobalPruning
+    )
+  },
+  rules = rules
+)
+
+  
+  predicciones <- predict(modelo, newdata = test)
+  matriz_confusion <- table(Predicted = predicciones, Actual = test[[columna_objetivo]])
+  
+  clases <- sort(unique(test[[columna_objetivo]]))
+  matriz_confusion <- matriz_confusion[clases, clases]
+  
+
+  TP <- matriz_confusion["2", "2"]  # VP
+  TN <- matriz_confusion["1", "1"]  # VN
+  FP <- matriz_confusion["2", "1"]  # FP
+  FN <- matriz_confusion["1", "2"]  # FN
+  
+  exactitud <- (TP + TN) / sum(matriz_confusion)
+  sensibilidad <- TP / (TP + FN)
+  especificidad <- TN / (TN + FP)
+  precision <- TP / (TP + FP)
+  f1_score <- 2 * (precision * sensibilidad) / (precision + sensibilidad)
+  f2_score <- 5 * (precision * sensibilidad) / (4 * precision + sensibilidad)
+  f0_5_score <- 1.25 * (precision * sensibilidad) / (0.25 * precision + sensibilidad)
+  
+  resultados <- rbind(resultados, data.frame(
+    minCases = mc,
+    trials = trials,
+    CF = cf,
+    winnow = winnow,
+    bands = bands,
+    noGlobalPruning = noGlobalPruning,
+    rules = rules,
+    Exactitud = round(exactitud * 100, 2),
+    Sensibilidad = round(sensibilidad * 100, 2),
+    Especificidad = round(especificidad * 100, 2),
+    Precisión = round(precision * 100, 2),
+    F1_Score = round(f1_score * 100, 2),
+    F2_Score = round(f2_score * 100, 2),
+    F0.5_Score = round(f0_5_score * 100, 2)
+  ))
+}
+```
+
+```{r}
+print(head(resultados[order(-resultados$F1_Score), ], n=20))
+```
+
+```{r}
+summary(resultados)
+```
+
+# F1 SCORE
+```{r}
+filtrado <- resultados[resultados$F1_Score > 50, ]
+filtrado$bands <- ifelse(is.na(filtrado$bands), 0, filtrado$bands)
+filtrado <- na.omit(filtrado)
+filtrado <- filtrado[, !(names(filtrado) %in% c("Exactitud", "Sensibilidad", "Especificidad", "Precisión", "noGlobalPruning"))]
+filtrado <- filtrado[order(-filtrado$F1_Score), ]
+```
+
+
+## Haz un resumen de las principales conclusiones de todos los análisis y modelos realizados
+En un modelo de predicion de impago nos conviene seguramente un equilibrio entre errores tipo I y II, con un ajuste personalizado dependiendo de la necesidad natural de una entidad bancaria a dar prestamos, es decir, si no hay mucha liquidez, hay una restriccion bancaria y podriamos pensar que el modelo deberia ser mas restrictivo para ello.
+Tambien puede ser importante en otro momento, de bonanza economica, ser mas permisivo, para no perder oportunidades de negocio. Entonces teniendo en cuenta ello, estando en 2024 y no en 2012, donde en general hay una bonanza economica comparable y que el banco puede permitirse mas impagos, un punto de vista interesante es darle mas importancia a la *precision*, minimizando los falsos negativos, si estamos en un contexto de situacion economica desfavorable quizas tiene mas sentido tener menos impagos, es decir un *recall* mas alto.
+Ya no depende solamente de la situacion economica, sino por ejemplo la tasa de impago en la entidad que hace el modelo, si es muy alta va a necesitar arriesgar menos, si es baja, podra arriesgar mas.
+Por tanto es interesante comparar *precision vs recall*, y un ejemplo en este caso podria ser un modelo *f0.5 score* en caso de querer riesgo o *f2 score* en caso de buscar mas prudencia.
+Ademas es muy costoso en terminos de tiempo y dinero, hacer un modelo que no sea interpretable, por lo que es importante tener en cuenta la interpretabilidad del modelo, y en este caso, un arbol de decision es una buena opcion, ya que es facil de interpretar y de explicar a la parte de negocio.
+Tambien es muy costoso en tiempo de computacion hacer un modelo en base a pruebas como he hecho (11664 pruebas de modelos, y tuve que reducir ya que era mucho tiempo), que si bien es correcto en terminos academicos, en entornos de produccion quizas no es la mejor opcion, ya que no se trabaja con 700 registros, sino, al menos con miles de registros.
+Por tanto, en resumen, un modelo de arbol de decision, con un f1 score de 60,92, si bien hay algunos F0.5 Score de 65.16 y F2 Score de 57.36,
+con un minimos casos (minCases) de 125
+pasadas (trials) de 15
+ajuste (CF) de 0.15
+filtro de variables no importantes (winnow) en FALSE
+division de variables no numericas (bands) en 5,10 o 15
+poda global (noGlobalPruning) en FALSE
+reglas (rules) en TRUE
+Sin usar reglas, minCases 100	, trials 35,	ajuste 0.20, con F1 de	59.04	F2 de 53.96	y F0.5 score de 65.16
+Son los mejores modelos para este caso, tanto si se usan reglas como si no, ya que son interpretables, tienen un buen f1 score, y son un modelo que se puede ajustar a las necesidades de la entidad bancaria que lo utilice.
+A continuacion visualizo el modelo final sin usar reglas, donde podemos ver como se divide el arbol, siendo el primer nodo checking_balance:
+
+```{r}
+head(filtrado, n=5)
+modelo <- C5.0(
+  x = train[, -which(names(train) == columna_objetivo)],
+  y = train[[columna_objetivo]],
+  trials = 15,
+  control = {
+    C5.0Control(
+      minCases = 125,
+      CF = 0.15,
+      winnow = FALSE,
+      earlyStopping = TRUE,
+      noGlobalPruning = FALSE
+    )
+  },
+  rules = FALSE
+)
+
+plot(modelo, gp = gpar(fontsize = 9.5))
+
+```
+```{r}
+C5imp(modelo)
+```
+
+```{r}
+predicciones_test <- predict(modelo, newdata = test)
+
+matriz_confusion <- table(Predicted = predicciones_test, Actual = test$default)
+
+print(matriz_confusion)
+
+```
+
+En la matriz de confusión observamos que hay 62 errores de tipo I y 18 errores de tipo II. Esto es aceptable en un contexto donde el enfoque está en aumentar el riesgo en la concesion de creditos, pero no seria aceptable en un entorno de maxima prudencia. Sin embargo, si quisiéramos priorizar la reducción de los errores de tipo II, podríamos ajustar el modelo para que favorezca lo contrario, ya que he hecho suficientes pruebas para elegir un modelo con un F2 score (los mas altos tienen 57.36).
+
+# F2 SCORE
+```{r}
+filtrado <- resultados[resultados$F2_Score > 50, ]
+filtrado$bands <- ifelse(is.na(filtrado$bands), 0, filtrado$bands)
+filtrado <- na.omit(filtrado)
+filtrado <- filtrado[, !(names(filtrado) %in% c("Exactitud", "Sensibilidad", "Especificidad", "Precisión", "noGlobalPruning"))]
+filtrado <- filtrado[order(-filtrado$F2_Score), ]
+head(filtrado, n=5)
+```
+# F0.5 SCORE
+Si queremos usar como referencia F0.5 score (ya que el primer filtrado era con F1 Score), podemos usar estas configuraciones, donde tenemos incluso valores de 66 hasta 67.07:
+```{r}
+filtrado <- resultados[resultados$F0.5_Score > 50, ]
+filtrado$bands <- ifelse(is.na(filtrado$bands), 0, filtrado$bands)
+filtrado <- na.omit(filtrado)
+filtrado <- filtrado[, !(names(filtrado) %in% c("Exactitud", "Sensibilidad", "Especificidad", "Precisión", "noGlobalPruning"))]
+filtrado <- filtrado[order(-filtrado$F0.5_Score), ]
+head(filtrado, n=5)
+```
+```
+
+
+

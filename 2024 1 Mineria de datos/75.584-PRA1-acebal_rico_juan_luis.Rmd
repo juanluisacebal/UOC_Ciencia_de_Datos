@@ -1,0 +1,740 @@
+---
+title: 'Minería de datos: PRA1 - Selección y preparación de un juego de datos'
+author: "Autor: Juan Luis Acebal Rico"
+date: "Noviembre 2024"
+output:
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+  word_document: default
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    includes:
+      in_header: 75.584-PEC-header.html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+******
+# Enunciado
+******
+Todo estudio analítico debe nacer de una necesidad por parte del **negocio** o de una voluntad de dotarle de un conocimiento contenido en los datos y que solo podremos obtener a través de una colección de buenas prácticas basadas en la Minería de Datos.  
+
+El mundo de la analítica de datos se sustenta en 3 ejes:  
+
+A. Uno de ellos es el profundo **conocimiento** que deberíamos tener **del negocio** al que tratamos de dar respuestas mediante los estudios analíticos.  
+
+B. El otro gran eje es sin duda las **capacidades analíticas** que seamos capaces de desplegar y en este sentido, las dos prácticas de esta asignatura pretenden que el estudiante realice un recorrido sólido por este segundo eje.  
+
+C. El tercer eje son los **Datos**. Las necesidades del Negocio deben concretarse con preguntas analíticas que a su vez sean viables responder a partir de los datos de que disponemos. La tarea de analizar los datos es sin duda importante, pero la tarea de identificarlos y obtenerlos va a ser para un analista un reto permanente.  
+
+Como **primera parte** del estudio analítico que nos disponemos a realizar, se pide al estudiante que complete los siguientes pasos:   
+
+
+1. Plantear un problema de analítica de datos detallando los objetivos analíticos y explica una metodología para resolverlos de acuerdo con lo que se ha practicado en las PEC y lo que se ha aprendido en el material didáctico.
+
+2. Seleccionar un juego de datos y justificar su elección. El juego de datos **deberá tener capacidades** para que se le puedan aplicar **algoritmos supervisados** y **algoritmos no supervisados** en la PRA2 y deberá estar alineado con el problema analítico planteado en el paso anterior.
+
+**Requisito mínimo**: El juego de datos deberá tener como mínimo 500 observaciones con un mínimo de 5 variables numéricas, 2 categóricas y 1 binaria. Además **debe ser distinto**, es importante que no sea un dataset usado en las PEC anteriores.
+
+Adjuntamos aquí una lista de portales de datos abiertos para seleccionar el juego de datos. Se pueden usar otras fuentes para obtener vuestro juego de datos, pero recordad de citarlas:
+
+* **Datos abiertos**
+  + [Google Dataset Search](https://datasetsearch.research.google.com/)
+  + [Datos abiertos España](https://datos.gob.es/es/catalogo?q=&frequency=%7B"type"%3A+"months"%2C+"value"%3A+"1"%7D&sort=score+desc%2C+metadata_modified+desc)
+  + [Datos abiertos Madrid](https://datos.madrid.es/portal/site/egob/)
+  + [Datos abiertos Barcelona](https://opendata-ajuntament.barcelona.cat/es/)
+  + [Datos abiertos Londres](https://data.london.gov.uk/)
+  + [Datos abiertos New York](https://opendata.cityofnewyork.us/)
+  
+* **Conjuntos de datos para aprendizaje automático e investigación**
+  + [UCI Machine Learning](https://archive.ics.uci.edu/datasets?orderBy=DateDonated&sort=desc)
+  + [Datasets for machine-learning research (Wikipedia)](https://en.wikipedia.org/wiki/List_of_datasets_for_machine-learning_research)
+  + [Kaggle datasets](https://www.kaggle.com/datasets)
+
+
+
+3. Realizar un análisis exploratorio del juego de datos seleccionado.   
+
+4. Realizar tareas de limpieza y acondicionado para poder ser usado en procesos de modelado.
+
+5. Realizar métodos de discretización
+
+6. Aplicar un estudio PCA sobre el juego de datos. A pesar de no estar explicado en el material didáctico, se valorará si en lugar de PCA investigáis por vuestra cuenta y aplicáis SVD (Single Value Decomposition).
+* **Algunos recursos**
+  * [PCA para reducción de dimensiones](https://www.aprendemachinelearning.com/comprende-principal-component-analysis/)
+  * [SVD Singular Value Decomposition](https://math.mit.edu/classes/18.095/2016IAP/lec2/SVD_Notes.pdf)
+
+Recordad que para todas las PRA es **necesario documentar** en cada apartado del ejercicio práctico que se ha hecho, por qué se ha hecho y cómo se ha hecho. Asimismo, todas las decisiones y conclusiones deberán ser presentados de forma razonada y clara, **contextualizando los resultados**, es decir, especificando todos y cada uno de los pasos que se hayan llevado a cabo para su resolución. Por último, incluid una **conclusión final** resumiendo los resultados obtenidos en la práctica e indicad eventuales **citaciones bibliográficas**, fuentes internas/externas y materiales de investigación.
+
+<!-- * **Documento entregable** -->
+
+<!-- Se deben entregar tanto el fichero RMD como el fichero HTML resultante de ejecutar el documento R/Python con Rmarkdown mediante el comando Knit. -->
+<!-- Hay que hacerlo con el siguiente nombre 75.584-PRA1-NombreEstudiante.html -->
+
+******
+# Recursos de programación
+******
+* Incluimos en este apartado una lista de recursos de programación para minería de datos donde podréis encontrar ejemplos, ideas e inspiración:
+  + [Material adicional del libro: Minería de datos Modelos y Algoritmos](https://discovery.biblioteca.uoc.edu/discovery/fulldisplay?docid=alma991000548909706712&context=L&vid=34CSUC_UOC:VU1&lang=ca&search_scope=MyInst_and_CI&adaptor=Local%20Search%20Engine&tab=Everything&query=any,contains,Minería%20de%20datos%20Modelos%20y%20Algoritmos)
+  + [Espacio de recursos UOC para ciencia de datos](http://datascience.recursos.uoc.edu/es/)
+  + [Buscador de código R](https://rseek.org/)  
+  + [Colección de cheatsheets en R](https://www.rstudio.com/resources/cheatsheets/)  
+  
+
+******
+
+El dataset ha sido sacado de aqui:
+https://www.kaggle.com/datasets/die9origephit/amazon-data-science-books
+
+```{bash}
+#!/bin/bash
+#kaggle datasets download die9origephit/amazon-data-science-books
+```
+```{bash}
+#unzip amazon-data-science-books.zip
+```
+
+```{r}
+library(reticulate)
+py_config()
+py_install("pandas")
+py_install("matplotlib")
+py_install("seaborn")
+py_install("Jinja2")
+py_install("scikit-learn")
+```
+
+
+
+
+```{python}
+import pandas as pd
+import numpy as np
+df = pd.read_csv("final_book_dataset_kaggle2.csv")
+```
+
+
+```{python}
+df.head().to_csv('head_df.csv')
+```
+
+```{r}
+head_df <- read.csv('head_df.csv')
+print(head_df)
+```
+
+
+```{python}
+df.info()
+```
+Tenemos 830 observaciones y 18 variables. 5 variables numéricas, 6 categóricas y 1 binaria.
+
+
+
+```{python}
+col_a_fillna = ['star5', 'star4', 'star3', 'star2', 'star1']
+df[col_a_fillna] = df[col_a_fillna].fillna(0)
+df[col_a_fillna] = df[col_a_fillna].replace('[^\d]', '', regex=True).astype(int)
+df[col_a_fillna] = df[col_a_fillna].astype(int)
+
+print(df.isnull().sum())
+
+```
+
+```{python}
+df=df[(df['star5'] + df['star4'] + df['star3'] + df['star2'] + df['star1'] <= 101) & 
+                 (df['star5'] + df['star4'] + df['star3'] + df['star2'] + df['star1'] >= 99)]
+```
+Registros que la suma de las variables 'star5', 'star4', 'star3', 'star2', 'star1' esta entre 99 y 101, para eliminar
+los registros que no cumplan con esta condición ya que seria nulo (101 y 99 lo permito ya que por el redondeo puede ser posible)
+
+```{python}
+df.rename(columns={'language': 'ingles'}, inplace=True)
+df['ingles'] = df['ingles'].apply(lambda x: 1 if x == 'English' else 0)
+```
+
+
+```{python}
+# 
+pd.crosstab(index=df['ingles'], columns="count")
+```
+Tabla de contingencia de la variable ingles
+
+
+```{python}
+df['Peso (g)'] = df['weight'].str.extract('(\d+\.?\d*)').astype(float) * 453.592
+df.drop(columns=['weight'], inplace=True)
+```
+
+
+
+```{python}
+df.describe().to_csv('df.describe.csv')
+```
+
+```{r}
+df.describe <- read.csv('df.describe.csv')
+print(df.describe)
+```
+
+
+
+
+```{python}
+#df.info()
+```
+
+```{python}
+df = df.dropna(subset=['price'])
+```
+
+```{python}
+#df.info()
+```
+
+
+
+```{python}
+#print(df[['price', 'avg_reviews', 'pages', 'Peso (g)']].head())
+#df[['price', 'avg_reviews', 'pages', 'Peso (g)']].describe()
+
+```
+```{python}
+df.info()
+```
+
+```{python}
+df['author'] = df['author'].fillna('N/A')
+df['publisher'] = df['publisher'].fillna('N/A')
+df['ISBN_13'] = df['ISBN_13'].fillna('N/A')
+
+col_a_eliminar = ['link', 'complete_link']
+df = df.drop(columns=col_a_eliminar)
+```
+```{python}
+df.info()
+```
+
+
+
+```{python}
+from sklearn.impute import KNNImputer
+
+
+df['pages'] = pd.to_numeric(df['pages'], errors='coerce')
+df['n_reviews'] = pd.to_numeric(df['n_reviews'], errors='coerce')
+
+
+variables_para_imputar = ['price', 'avg_reviews', 'pages', 'Peso (g)', 'n_reviews']
+
+for col in variables_para_imputar:
+    df[col] = pd.to_numeric(df[col], errors='coerce')
+
+df_imputar = df[variables_para_imputar]
+imputador = KNNImputer(n_neighbors=5)
+df_imputado = pd.DataFrame(imputador.fit_transform(df_imputar), columns=variables_para_imputar)
+
+for col in variables_para_imputar:
+    df[col] = df_imputado[col]
+
+#print(df.isnull().sum())
+```
+
+```{python}
+df.info()
+print(df.isnull().sum())
+```
+```{python}
+df = df.drop(columns=['dimensions', 'ISBN_13'])
+df = df.dropna()
+print(df.isnull().sum())
+```
+
+```{python}
+import matplotlib.pyplot as plt
+
+for variable in df.select_dtypes(include=['number']).columns:
+    plt.figure(figsize=(8, 5))
+    plt.boxplot(df[variable].dropna())
+    plt.title(f'Boxplot de {variable}')
+    plt.xlabel(variable)
+    plt.grid(axis='x', linestyle='--', alpha=0.7)
+    plt.show()
+    plt.close()
+```
+
+```{python}
+import seaborn as sns
+import matplotlib.pyplot as plt
+describ = df.describe().transpose()
+
+
+
+for fila in describ.index:
+    linea = describ.loc[fila, ['mean', 'std', 'min', '25%', '50%', '75%', 'max']]
+    linea.plot(kind='bar', figsize=(10, 6))
+    plt.show()
+    plt.close()
+```
+
+```{python}
+def categorizar_paginas(pages):
+
+    if isinstance(pages, str) and pages.startswith("Menos de"):
+        return pages
+    
+    if pd.isnull(pages):
+        return "No conocido"
+    
+    try:
+        pages = int(pages)
+    except ValueError:
+        return "No conocido"
+
+    if pages < 250:
+        return "Menos de 250"
+    elif pages < 500:
+        return "Menos de 500"
+    elif pages < 750:
+        return "Menos de 750"
+    elif pages < 1000:
+        return "Menos de 1000"
+    elif pages < 1250:
+        return "Menos de 1250"
+    elif pages < 1500:
+        return "Menos de 1500"
+    elif pages < 1750:
+        return "Menos de 1750"
+    elif pages < 2000:
+        return "Menos de 2000"
+    else:
+        return "2000 o más"
+      
+```
+
+
+
+```{python}
+df['pages'] = df['pages'].apply(categorizar_paginas)
+df['pages'].info()
+
+```
+
+
+```{python}
+
+pd.crosstab(index=df['pages'], columns="count")
+```
+Tabla de contingencia de la variable pages
+
+
+```{python}
+columnas = df.select_dtypes(include=['float64', 'int64'])
+tabla_correlacion = columnas.corr()
+tabla_correlacion.to_csv('tabla_correlacion.csv', index=True)
+```
+
+```{r}
+correlacion <- read.csv('tabla_correlacion.csv')
+print(correlacion)
+```
+
+Bueno, parece que cuando el precio es mas alto, tiene menos correlaciones y que el peso afecta al precio tambien.
+La media de reviews tiene una pequena correlacion con el numero de reviews.
+Hay una fuerte correlacion negativa, entre 4 y 5 estrellas, lo que viene a decir, que un producto esta en una u otra proporcion de estrellas, pero no en ambas. Esto es interesante para saber cuales son los mejores productos y ver su distribucion no solamente cuando es 5 estrellas, sino que pasa cuando son 3, 2 o 1 estrellas, por ejemplo.
+
+
+```{python}
+df.to_csv('df.csv', index=True)
+```
+Cambioa R, ya que tengo problemas con la visualizacion
+
+```{r}
+df <- read.csv('df.csv')
+```
+
+```{r}
+if (!requireNamespace("GGally", quietly = TRUE)) {
+  install.packages("GGally")
+}
+library(GGally)
+library(ggplot2)
+star <- df[, c("star1", "star2", "star3", "star4", "star5")]
+
+ggpairs(star)
+
+otras <- df[, c("price", "avg_reviews", "n_reviews", "Peso..g.")]
+
+ggpairs(otras)
+```
+
+Ahora voy a aplicar kmeans, primero escalo y busco el numero de clusters optimo
+```{r}
+summary(df)
+```
+
+
+```{r}
+columnas_numericas <- (df[sapply(df, is.numeric)]) 
+datos_escalados <- as.data.frame(scale(columnas_numericas))
+colnames(datos_escalados) <- colnames(columnas_numericas)
+head(datos_escalados)
+quitar <- grep("star", names(datos_escalados))
+datos_escalados <- datos_escalados[, -quitar]
+head(datos_escalados)
+```
+
+
+```{r}
+
+library(dplyr)
+
+library(factoextra)
+
+
+fviz_nbclust(datos_escalados, kmeans, method = "wss") +
+  ggtitle("Número óptimo de Clústeres - Método del Codo")
+```
+
+```{r}
+fviz_nbclust(datos_escalados, kmeans, method = "silhouette") +
+  ggtitle("Número optimo de Clústeres - Silueta")
+```
+En el metodo siluette esta marcado y recomienda 7, en el codo es mas confuso pero podriamos seleccionar 3 o 4, o a partir de 7
+
+
+
+
+
+```{r}
+wss <- sapply(1:10, function(k) {
+  kmeans(datos_escalados, centers = k, nstart = 10)$tot.withinss
+})
+
+plot(1:10, wss, type = "b", pch = 19, frame = FALSE,
+     xlab = "Número de Clústeres K",
+     ylab = "Suma de Distancias Cuadradas (WSS)",
+     main = "Método del Codo")
+```
+
+
+
+```{r}
+if (!requireNamespace("cluster", quietly = TRUE)) {
+  install.packages("cluster")
+}
+library(cluster)
+
+#datos_escalados <- scale(df[sapply(df, is.numeric)]) 
+
+dist_matrix <- dist(datos_escalados)
+
+hclust_result <- hclust(dist_matrix, method = "ward.D2")
+
+fviz_dend(hclust_result, 
+          k = 10,
+          rect = TRUE,
+          rect_fill = TRUE,
+          rect_border = "jco",
+          show_labels = FALSE) 
+```
+
+Si vien la clasificacion jerarquica ascendente (yo lo aprendi en frances y creo que se llama igual, CAH). No esta relacionada con Kmeans, puede servir tambien para hacerse una idea visual de cuantos clusters podemos utilizar viendo la distancia entre los clusters.
+
+
+
+
+```{r}
+set.seed(123)
+resultado_kmeans <- kmeans(datos_escalados, centers = 3, nstart = 25)
+fviz_cluster(resultado_kmeans, data = datos_escalados) +
+  ggtitle("Resultados de k-means 3 clusters")
+```
+
+
+
+
+```{r}
+resultado_kmeans4 <- kmeans(datos_escalados, centers = 4, nstart = 25)
+fviz_cluster(resultado_kmeans4, data = datos_escalados) +
+  ggtitle("Resultados de k-means 4 clusters")
+```
+
+```{r}
+resultado_kmeans6 <- kmeans(datos_escalados, centers = 6, nstart = 25)
+fviz_cluster(resultado_kmeans6, data = datos_escalados) +
+  ggtitle("Resultados de k-means 6 clusters")
+```
+```{r}
+resultado_kmeans7 <- kmeans(datos_escalados, centers = 7, nstart = 25)
+fviz_cluster(resultado_kmeans7, data = datos_escalados) +
+  ggtitle("Resultados de k-means 7 clusters")
+```
+
+
+```{r}
+summary(df)
+```
+
+```{r}
+summary(datos_escalados)
+library(corrplot)
+res <- cor(datos_escalados, use = "complete.obs")
+corrplot(res, method = "color", tl.col = "black", tl.srt = 30, order = "AOE",
+         number.cex = 0.75, addCoef.col = "black")
+pairs(datos_escalados, main = "Datos Escalados")
+```
+
+
+
+```{r}
+if (!requireNamespace("dbscan", quietly = TRUE)) {
+  install.packages("dbscan")
+}
+library(dbscan)
+
+#datos_escalados <- scale(df[sapply(df, is.numeric)])
+
+optics_result <- optics(datos_escalados, eps = 3, minPts = 4)
+
+plot(optics_result)
+
+clusters_optics <- extractXi(optics_result, xi = 0.03)
+plot(datos_escalados, col = clusters_optics$cluster, pch = 20, main = "Clustering OPTICS")
+```
+No me detecta bien los clusters, pero ha sido util para entender mejor los datos y ver que no hay clusters claros, por lo que kmeans es mejor en este caso, aunque kmeans tampoco tiene un desarrollo tan claro.
+
+```{r}
+head(datos_escalados)
+```
+
+Ahora voy a probar a reducir la dimensionalidad, y quizas asi tengamos mejores conclusiones
+
+```{r}
+pca_result <- prcomp(datos_escalados, center = TRUE, scale. = TRUE)
+
+varianza_explicada <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+
+varianza_acumulada <- cumsum(varianza_explicada)
+
+print(varianza_acumulada)
+plot(varianza_acumulada, type = "b", pch = 19, frame = FALSE,
+     xlab = "Número de Componentes Principales",
+     ylab = "Varianza Explicada Acumulada",
+     main = "Varianza Explicada Acumulada")
+abline(h = 0.85, col = "red", lty = 2) 
+```
+Voy a hacerlo con 4 componentes, ya que el objetivo del ejercicio es entender la dimensionalidad y no tendria sentido hacerlo con 5 componentes y poder explicar el 100%, aunque podria ser interesante si hubiera sido el 90%, voy a usar el 87%
+
+```{r}
+num_componentes <- 4
+df_reducido <- pca_result$x[, 1:num_componentes]
+head(df_reducido)
+```
+Guardo para mas adelante las primeras 4 componentes
+
+
+```{r}
+pca_result <- prcomp(datos_escalados, center = TRUE, scale. = TRUE)
+
+summary(pca_result)
+datos_reducidos <- pca_result$x[, 1:4] 
+```
+
+
+
+```{r}
+pca_result <- prcomp(as.data.frame(scale(columnas_numericas)), center = TRUE, scale. = TRUE)
+
+summary(pca_result)
+```
+Si incluyo las estrellas, con 8 componentes tendria la misma informacion que sin incluir las estrellas con 5, lo que quiere decir que 2 variables de estrellas no dan mucha informacion
+
+
+
+
+```{r}
+
+optics_result <- optics(as.data.frame(scale(columnas_numericas)), eps = 2, minPts = 3)
+
+plot(optics_result)
+
+clusters_optics <- extractXi(optics_result, xi = 0.09)
+plot(datos_escalados, col = clusters_optics$cluster, pch = 20, main = "Clustering OPTICS")
+
+
+```
+
+
+```{r}
+columnas_seleccionadas <- columnas_numericas[, c("price", "avg_reviews")]
+datos_escalados_min <- as.data.frame(scale(columnas_seleccionadas))
+optics_result <- optics(datos_escalados_min, eps = 20, minPts = 5)  
+
+clusters_optics <- extractXi(optics_result, xi = 0.10) 
+pairs(datos_escalados_min,
+      col = clusters_optics$cluster + 1, 
+      pch = 19,
+      main = "Clustering OPTICS - price, avg_reviews y n_reviews")
+
+```
+
+Y si pruebo con SVD?
+
+```{r}
+#datos_escalados
+svd_result <- svd(scale(datos_escalados))
+
+U <- svd_result$u
+D <- svd_result$d 
+V <- svd_result$v 
+
+varianza_explicada <- (D^2) / sum(D^2)
+print(varianza_explicada) 
+datos_reducidos_svd <- U[, 1:2] %*% diag(D[1:2])
+```
+```{r}
+barplot(varianza_explicada * 100, main = "Varianza Explicada por SVD",
+        xlab = "Componentes", ylab = "Varianza Explicada (%)", col = "blue")
+```
+
+```{r}
+plot(datos_reducidos_svd, 
+     col = clusters_optics$cluster + 1,
+     pch = 20, 
+     main = "Datos en el Espacio Reducido (SVD)",
+     xlab = "Primer Componente", 
+     ylab = "Segundo Componente")
+```
+
+```{r}
+plot(datos_reducidos, 
+     col = resultado_kmeans6$cluster,
+     pch = 20, 
+     main = "Datos en el Espacio Reducido (K-means - 6 Clústeres)",
+     xlab = "Primer Componente", 
+     ylab = "Segundo Componente")
+```
+
+
+
+```{r}
+plot(datos_reducidos, 
+     col = resultado_kmeans4$cluster,
+     pch = 20, 
+     main = "Datos en el Espacio Reducido (K-means - 4 Clústeres)",
+     xlab = "Primer Componente", 
+     ylab = "Segundo Componente")
+```
+
+```{r}
+plot(datos_reducidos, 
+     col = resultado_kmeans$cluster,
+     pch = 20, 
+     main = "Datos en el Espacio Reducido (K-means - 3 Clústeres)",
+     xlab = "Primer Componente", 
+     ylab = "Segundo Componente")
+```
+
+
+
+```{r}
+plot(datos_reducidos_svd, 
+     col = resultado_kmeans6$cluster + 1,
+     pch = 20, 
+     main = "Datos en el Espacio Reducido (SVD) con kmeans k=6",
+     xlab = "Primer Componente", 
+     ylab = "Segundo Componente")
+
+```
+```{r}
+
+plot(datos_reducidos, 
+     col = resultado_kmeans7$cluster + 1,
+     pch = 20, 
+     main = "Datos en el Espacio Reducido con kmeans k=7",
+     xlab = "Primer Componente", 
+     ylab = "Segundo Componente")
+```
+
+
+
+Después de todas las pruebas, visualizaciones y análisis, he llegado a las siguientes conclusiones:
+Relación precio-peso: Existe una relación evidente entre el precio y el peso, por lo que estos son factores importantes a considerar.
+Estrellas: Las estrellas no aportan información relevante en el análisis, por lo que podrían eliminarse en futuros estudios.
+Número de reseñas vs. promedio de reseñas: El número total de reseñas no resulta muy útil, pero la media de las reseñas sí lo es. Por lo tanto, sería recomendable conservar únicamente la media y eliminar el número total de reseñas en futuros analisis.
+Número de páginas vs. peso: El número de páginas no aporta información significativa, pero el peso sí. Por lo tanto, sería conveniente eliminar el número de páginas y trabajar únicamente con el peso como variable.
+
+Respecto a la PCA y SVD, ambos métodos han sido útiles para reducir la dimensionalidad de los datos y facilitar su análisis. Sin embargo, la PCA ha resultado más efectiva en este caso, ya que ha permitido explicar el 87% de la varianza con solo 4 componentes principales. Por otro lado, el SVD ha sido menos efectivo, ya que ha explicado solo el 72% de la varianza con 4 componentes.
+
+Respecto a DBSCAN no me ha sido de mucha utilidad, ya que no ha detectado clusters claros en los datos.  He probado decenas de combinaciones de xi, eps y minPts, pero no he encontrado clusters claros, por lo que he decidido quedarme con kmeans, que ha sido mas efectivo en este caso.
+Sin embargo kmeans ha actuado mejor, aunque no ha sido perfecto, ya que no ha detectado clusters totalment definidos, pero si ha sido de utilidad para entender mejor los datos. Por tanto me queda mostrar los datos mas llamativos de cada cluster.
+
+Lo que mas me ha llamado la atencion, o lo que mas me ha sorprendido, es que el precio no esta tan relacionado con las estrellas, lo que quiere decir que un producto puede tener 5 estrellas y ser barato, o tener 1 estrella y ser caro, lo que me hace pensar que el precio no esta relacionado con la calidad del producto, sino con otros factores, como el peso, por ejemplo.
+
+Lo que me ha gustado menos es que no he podido hacer un estudio de los clusters con DBSCAN, ya que no ha detectado clusters claros, pero me ha servido para entender mejor los datos y ver que no hay clusters claros, por lo que kmeans es mejor en este caso, aunque kmeans tampoco tiene un desarrollo tan claro.
+
+Me hubiera gustado encontrar un dataset mejor, ya que si bien me ha parecido interesante, me hubiera gustado encontrar insights mas claros y utiles.
+
+```{r}
+df_con_clusters <- cbind(df, cluster = resultado_kmeans6$cluster)
+head(df_con_clusters)
+```
+
+
+
+```{r}
+library(tidyr)
+df_con_clusters <- df_con_clusters %>% select(-starts_with("X"))
+
+df_numerico <- df_con_clusters %>%
+  select(where(is.numeric), cluster)
+
+resumen_clusters <- df_numerico %>%
+  group_by(cluster) %>%
+  summarise(across(where(is.numeric), list(
+    media = mean,
+    mediana = median,
+    sd = sd
+  ), na.rm = TRUE))
+
+resumen_largo <- resumen_clusters %>%
+  pivot_longer(-cluster, names_to = "variable", values_to = "valor")
+
+resumen_largo
+
+```
+
+
+```{r}
+resumen_medias <- df_con_clusters %>%
+  select(where(is.numeric), cluster) %>% 
+  group_by(cluster) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%
+  pivot_longer(-cluster, names_to = "variable", values_to = "media")
+
+ggplot(resumen_medias, aes(x = variable, y = media, fill = as.factor(cluster))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Media por Cluster", x = "Variable", y = "Media", fill = "Cluster") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+```{r}
+ggplot(resumen_medias, aes(x = as.factor(cluster), y = media, fill = as.factor(cluster))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ variable, scales = "free_y") + 
+  labs(title = "Media por Cluster", x = "Cluster", y = "Media", fill = "Cluster") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Respecto a los clusters, el numero 2 destaca por tener un peso mas alto que el resto el 4 por un precio mas alto, el 5 por tener un gran numero de reviews, y seguramente el que parece mas genuino respecto a las valoraciones de los clientes es el 6, ya que tiene mas valoraciones de 5 estrellas, y no tiene tantas como el resto de 1 estrella. Tambien destaca en el cluster 5 el numero de valoraciones, que indicaria seguramente que son libros ya maduros en el mercado y que llevan mas tiempo vendiendose, o que son superventas. Por ultimo la variable ingles no ha dado mucha informacion util.
+
